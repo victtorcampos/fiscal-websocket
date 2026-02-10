@@ -37,15 +37,14 @@ public class CertificateUtils {
     public static Map<String, String> extractInfo(X509Certificate cert) {
         Map<String, String> info = new HashMap<>();
         info.put("validade", cert.getNotAfter().toString());
-
-        String subjectDN = cert.getSubjectDN().getName();
+        
         try {
-            LdapName ldapName = new LdapName(subjectDN);
+            LdapName ldapName = new LdapName(cert.getSubjectDN().getName());
             for (Rdn rdn : ldapName.getRdns()) {
                 if (rdn.getType().equalsIgnoreCase("CN")) {
                     String cn = rdn.getValue().toString();
                     String[] cnParts = cn.split(":");
-                    if (cnParts.length == 2) {
+                    if (cnParts.length >= 2) {
                         info.put("razaoSocial", cnParts[0]);
                         info.put("cnpj", cnParts[1]);
                     } else {
@@ -53,8 +52,8 @@ public class CertificateUtils {
                     }
                 }
             }
-        } catch (InvalidNameException e) {
-            System.err.println("Could not parse SubjectDN: " + e.getMessage());
+        } catch (Exception e) {
+            throw new RuntimeException("Erro ao processar SubjectDN do certificado", e);
         }
         return info;
     }
