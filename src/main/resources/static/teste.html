@@ -31,15 +31,15 @@
             <h3>2. Cadastrar Emitente</h3>
             <form id="registerForm">
                 <label for="reg-cnpj">CNPJ:</label>
-                <input type="text" id="reg-cnpj" value="12345678000199">
+                <input type="text" id="reg-cnpj" value="02491588000159">
                 <label for="reg-razao">Razão Social:</label>
-                <input type="text" id="reg-razao" value="Empresa Teste LTDA">
+                <input type="text" id="reg-razao" value="VERA SCHIMIT LTDA">
                 <label for="reg-uf">UF:</label>
-                <input type="text" id="reg-uf" value="SP">
+                <input type="text" id="reg-uf" value="MT">
                 <label for="reg-cert-path">Caminho do Certificado (no servidor):</label>
-                <input type="text" id="reg-cert-path" value="C:/path/to/certificate.pfx">
+                <input type="text" id="reg-cert-path" value="C:/certificado/VERA SCHIMIT LTDA02491588000159.pfx"">
                 <label for="reg-cert-pass">Senha do Certificado:</label>
-                <input type="password" id="reg-cert-pass" value="your_password">
+                <input type="password" id="reg-cert-pass" value="12345">
                 <button type="submit">Registrar</button>
             </form>
         </div>
@@ -48,11 +48,11 @@
             <h3>3. Transmitir Documento</h3>
             <form id="transmitForm">
                 <label for="trans-cnpj">CNPJ do Emitente:</label>
-                <input type="text" id="trans-cnpj" value="12345678000199">
+                <input type="text" id="trans-cnpj" value="02491588000159">
                 <label for="trans-service">Serviço SEFAZ:</label>
                 <input type="text" id="trans-service" value="NFeStatusServico4">
                 <label for="trans-xml">XML do Documento:</label>
-                <textarea id="trans-xml" rows="10"><consStatServ xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><tpAmb>2</tpAmb><cUF>35</cUF><xServ>STATUS</xServ></consStatServ></textarea>
+                <textarea id="trans-xml" rows="10"><consStatServ xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><tpAmb>1</tpAmb><cUF>51</cUF><xServ>STATUS</xServ></consStatServ></textarea>
                 <button type="submit">Transmitir</button>
             </form>
         </div>
