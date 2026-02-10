@@ -1,41 +1,32 @@
 package tech.vcinf.fiscalwebsocket.service;
 
 import org.springframework.stereotype.Service;
+import tech.vcinf.fiscalwebsocket.model.Emitente;
+import tech.vcinf.fiscalwebsocket.util.SoapEnvelopeUtils;
 
-import javax.net.ssl.KeyManagerFactory;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManagerFactory;
-import java.io.FileInputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.security.KeyStore;
 
 @Service
 public class SefazService {
 
-    public HttpResponse<String> send(String url, String xml, String certificatePath, String password) throws Exception {
-        KeyStore keyStore = KeyStore.getInstance("PKCS12");
-        keyStore.load(new FileInputStream(certificatePath), password.toCharArray());
+    private final SefazHttpClientFactory httpClientFactory;
 
-        KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-        keyManagerFactory.init(keyStore, password.toCharArray());
+    public SefazService(SefazHttpClientFactory httpClientFactory) {
+        this.httpClientFactory = httpClientFactory;
+    }
 
-        TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-        trustManagerFactory.init(keyStore);
+    public HttpResponse<String> send(String url, String xml, Emitente emitente, String servico) throws Exception {
+        HttpClient client = httpClientFactory.getHttpClient(emitente);
 
-        SSLContext sslContext = SSLContext.getInstance("TLS");
-        sslContext.init(keyManagerFactory.getKeyManagers(), trustManagerFactory.getTrustManagers(), null);
-
-        HttpClient client = HttpClient.newBuilder()
-                .sslContext(sslContext)
-                .build();
+        String soapXml = SoapEnvelopeUtils.createEnvelope(xml, servico, emitente.getUf());
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
                 .header("Content-Type", "application/soap+xml")
-                .POST(HttpRequest.BodyPublishers.ofString(xml))
+                .POST(HttpRequest.BodyPublishers.ofString(soapXml))
                 .build();
 
         return client.send(request, HttpResponse.BodyHandlers.ofString());
