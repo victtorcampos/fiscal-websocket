@@ -1,12 +1,17 @@
 package tech.vcinf.fiscalwebsocket.model;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
-
+ 
 @Entity
 public class Emitente {
     @Id
     private String cnpj;
+
+    @Column(nullable = true)
+    private String razaoSocial;
+
     private String uf;
     private String caminhoCertificado;
     private String senha;
@@ -20,6 +25,14 @@ public class Emitente {
 
     public void setCnpj(String cnpj) {
         this.cnpj = cnpj;
+    }
+
+    public String getRazaoSocial() {
+        return razaoSocial;
+    }
+
+    public void setRazaoSocial(String razaoSocial) {
+        this.razaoSocial = razaoSocial;
     }
 
     public String getUf() {
