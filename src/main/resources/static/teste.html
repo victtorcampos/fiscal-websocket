@@ -212,7 +212,11 @@
       transmitForm.addEventListener("submit", (e) => {
         e.preventDefault();
         if (!stompClient || !stompClient.connected) {
+<<<<<<< HEAD
           log("ERRO: Conecte ao WebSocket primeiro."); 
+=======
+          log("ERRO: Conecte ao WebSocket primeiro.");
+>>>>>>> 28375604cc57b573920c417550ed0a792a68dc3e
           return;
         }
 
