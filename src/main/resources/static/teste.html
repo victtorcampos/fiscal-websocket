@@ -1,231 +1,254 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Página de Teste Fiscal WebSocket</title>
+<head>
+    <meta charset="UTF-8">
+    <title>Painel de Teste Fiscal WebSocket</title>
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1.5.1/dist/sockjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
     <style>
-      body {
-        font-family: sans-serif;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-      }
-      .container {
-        width: 90%;
-        max-width: 1200px;
-      }
-      .form-section,
-      .log-section {
-        border: 1px solid #ccc;
-        padding: 20px;
-        margin-top: 20px;
-        border-radius: 8px;
-      }
-      h2,
-      h3 {
-        border-bottom: 2px solid #eee;
-        padding-bottom: 10px;
-      }
-      label {
-        display: block;
-        margin-top: 10px;
-      }
-      input[type="text"],
-      input[type="password"],
-      textarea,
-      select {
-        width: 100%;
-        padding: 8px;
-        margin-top: 5px;
-        box-sizing: border-box;
-      }
-      button {
-        padding: 10px 15px;
-        margin-top: 20px;
-        cursor: pointer;
-        background-color: #007bff;
-        color: white;
-        border: none;
-        border-radius: 5px;
-      }
-      button:disabled {
-        background-color: #ccc;
-      }
-      #log {
-        width: 100%;
-        height: 400px;
-        white-space: pre-wrap;
-        background-color: #f4f4f4;
-        border: 1px solid #ddd;
-        margin-top: 10px;
-      }
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; background-color: #f0f2f5; }
+        .container { width: 95%; max-width: 1400px; }
+        .panel { border: 1px solid #ccc; padding: 20px; margin-top: 20px; border-radius: 8px; background-color: white; }
+        h2, h3 { border-bottom: 2px solid #eee; padding-bottom: 10px; color: #333; }
+        label { display: block; margin-top: 15px; font-weight: bold; }
+        input, select, textarea { width: 100%; padding: 10px; margin-top: 5px; box-sizing: border-box; border: 1px solid #ddd; border-radius: 4px; }
+        button { padding: 12px 20px; margin-top: 20px; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 5px; font-size: 16px; }
+        button:disabled { background-color: #aaa; cursor: not-allowed; }
+        #log { width: 100%; height: 400px; white-space: pre-wrap; background-color: #2b2b2b; color: #f1f1f1; border: 1px solid #444; margin-top: 10px; font-family: monospace; }
+        .status-badge { padding: 5px 10px; border-radius: 12px; color: white; font-weight: bold; }
+        .status-connected { background-color: #28a745; }
+        .status-disconnected { background-color: #dc3545; }
+        #operationsPanel[disabled] { opacity: 0.5; pointer-events: none; }
     </style>
-  </head>
-  <body>
+</head>
+<body>
     <div class="container">
-      <h2>Página de Teste - Middleware Fiscal</h2>
+        <h2>Painel de Teste - Middleware Fiscal</h2>
 
-      <div class="form-section">
-        <h3>1. Conexão</h3>
-        <button id="connectBtn">Conectar ao WebSocket</button>
-        <button id="disconnectBtn" disabled>Desconectar</button>
-      </div>
+        <div class="panel">
+            <h3>1. Conexão e Contexto</h3>
+            <button id="connectBtn">Conectar</button>
+            <span id="connectionStatus" class="status-badge status-disconnected">Desconectado</span>
+            
+            <label for="emitenteSelect">Selecionar Emitente:</label>
+            <select id="emitenteSelect" disabled>
+                <option value="">Selecione um emitente...</option>
+            </select>
+        </div>
 
-      <div class="form-section">
-        <h3>2. Cadastrar Emitente (Via Certificado)</h3>
-        <form id="registerForm">
-          <label for="reg-uf">UF:</label>
-          <select id="reg-uf" required>
-            <option value="MT">Mato Grosso (MT)</option>
-            <option value="RS">Rio Grande do Sul (RS)</option>
-            <option value="SP">São Paulo (SP)</option>
-            <option value="PR">Paraná (PR)</option>
-            <!-- Adicionar outros se necessário -->
-          </select>
+        <div class="panel">
+            <h3>2. Cadastrar Novo Emitente</h3>
+            <form id="registerForm">
+                <label for="reg-uf">UF:</label>
+                <select id="reg-uf" required>
+                    <option value="MT">Mato Grosso (MT)</option>
+                    <option value="RS">Rio Grande do Sul (RS)</option>
+                    <option value="SP">São Paulo (SP)</option>
+                    <option value="PR">Paraná (PR)</option>
+                </select>
 
-          <label for="reg-tipo">Tipo de Documento:</label>
-          <select id="reg-tipo" required>
-            <option value="A1">Certificado A1 (Arquivo)</option>
-            <!-- A3 e Repositório Windows serão implementados futuramente -->
-          </select>
+                <label for="reg-tipo">Tipo de Certificado:</label>
+                <select id="reg-tipo" required>
+                    <option value="A1">Certificado A1 (Arquivo)</option>
+                </select>
 
-          <label for="certFile">Arquivo do Certificado (.pfx, .p12):</label>
-          <input type="file" id="certFile" accept=".pfx,.p12" required />
+                <label for="certFile">Arquivo do Certificado (.pfx, .p12):</label>
+                <input type="file" id="certFile" accept=".pfx,.p12" required>
 
-          <label for="reg-cert-pass">Senha do Certificado:</label>
-          <input type="password" id="reg-cert-pass" value="12345" required />
+                <label for="reg-cert-pass">Senha do Certificado:</label>
+                <input type="password" id="reg-cert-pass" value="12345" required>
 
-          <button type="submit">Gravar Emitente</button>
-        </form>
-      </div>
+                <button type="submit">Gravar Emitente</button>
+            </form>
+        </div>
 
-      <div class="form-section">
-        <h3>3. Transmitir Documento</h3>
-        <form id="transmitForm">
-          <label for="trans-cnpj">CNPJ do Emitente:</label>
-          <input type="text" id="trans-cnpj" value="02491588000159" />
-          <label for="trans-service">Serviço SEFAZ:</label>
-          <input type="text" id="trans-service" value="NFeStatusServico4" />
-          <label for="trans-xml">XML do Documento:</label>
-          <textarea id="trans-xml" rows="10">
-<consStatServ xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><tpAmb>1</tpAmb><cUF>51</cUF><xServ>STATUS</xServ></consStatServ></textarea
-          >
-          <button type="submit">Transmitir</button>
-        </form>
-      </div>
+        <div id="operationsPanel" class="panel" disabled>
+            <h3>3. Operações</h3>
+            <button id="statusServicoBtn">Consultar Status Serviço ({UF})</button>
+        </div>
 
-      <div class="log-section">
-        <h3>Logs da Comunicação</h3>
-        <textarea id="log" readonly></textarea>
-      </div>
+        <div class="panel">
+            <h3>Logs da Comunicação</h3>
+            <textarea id="log" readonly></textarea>
+        </div>
     </div>
 
-    <script>
-      const connectBtn = document.getElementById("connectBtn");
-      const disconnectBtn = document.getElementById("disconnectBtn");
-      const registerForm = document.getElementById("registerForm");
-      const transmitForm = document.getElementById("transmitForm");
-      const logArea = document.getElementById("log");
+<script>
+    const connectBtn = document.getElementById('connectBtn');
+    const connectionStatus = document.getElementById('connectionStatus');
+    const emitenteSelect = document.getElementById('emitenteSelect');
+    const registerForm = document.getElementById('registerForm');
+    const operationsPanel = document.getElementById('operationsPanel');
+    const statusServicoBtn = document.getElementById('statusServicoBtn');
+    const logArea = document.getElementById('log');
 
-      let stompClient = null;
+    let stompClient = null;
+    let emitentes = [];
 
-      function log(message) {
-        logArea.value += `[${new Date().toLocaleTimeString()}] ${message}\
-`;
+    const UF_CODES = {
+        'MT': '51', 'RS': '43', 'SP': '35', 'PR': '41'
+    };
+
+    function log(message) {
+        logArea.value += `[${new Date().toLocaleTimeString()}] ${message}\n`;
         logArea.scrollTop = logArea.scrollHeight;
-      }
+    }
 
-      connectBtn.addEventListener("click", () => {
-        const socket = new SockJS("/ws");
-        stompClient = Stomp.over(socket);
-        stompClient.connect(
-          {},
-          (frame) => {
-            log("Conectado ao servidor WebSocket: " + frame);
-            connectBtn.disabled = true;
-            disconnectBtn.disabled = false;
+    function setConnectionStatus(connected) {
+        connectBtn.disabled = connected;
+        connectionStatus.textContent = connected ? 'Conectado' : 'Desconectado';
+        connectionStatus.className = `status-badge ${connected ? 'status-connected' : 'status-disconnected'}`;
+        emitenteSelect.disabled = !connected;
+    }
 
-            stompClient.subscribe("/topic/responses", (response) => {
-              log(
-                "RESPOSTA RECEBIDA:" +
-                  JSON.stringify(JSON.parse(response.body), null, 2),
-              );
-            });
-          },
-          (error) => {
-            log("Erro de conexão: " + error);
-          },
-        );
-      });
-
-      disconnectBtn.addEventListener("click", () => {
-        if (stompClient !== null) {
-          stompClient.disconnect(() => {
-            log("Desconectado do servidor.");
-            connectBtn.disabled = false;
-            disconnectBtn.disabled = true;
-          });
+    function updateOperationsPanel(selectedEmitente) {
+        if (selectedEmitente) {
+            operationsPanel.removeAttribute('disabled');
+            statusServicoBtn.textContent = `Consultar Status Serviço (${selectedEmitente.uf})`;
+        } else {
+            operationsPanel.setAttribute('disabled', 'true');
+            statusServicoBtn.textContent = 'Consultar Status Serviço ({UF})';
         }
-      });
+    }
 
-      registerForm.addEventListener("submit", (e) => {
+    function populateEmitenteSelect(emitenteList) {
+        emitentes = emitenteList;
+        emitenteSelect.innerHTML = '<option value="">Selecione um emitente...</option>';
+        emitentes.forEach(e => {
+            const option = document.createElement('option');
+            option.value = e.cnpj;
+            option.textContent = `${e.razaoSocial} (${e.cnpj}) - ${e.uf}`;
+            emitenteSelect.appendChild(option);
+        });
+
+        const savedCnpj = localStorage.getItem('selectedCnpj');
+        if (savedCnpj) {
+            emitenteSelect.value = savedCnpj;
+            const selected = emitentes.find(e => e.cnpj === savedCnpj);
+            updateOperationsPanel(selected);
+        }
+    }
+
+    function requestEmitenteList() {
+        if (!stompClient || !stompClient.connected) return;
+        log('Solicitando lista de emitentes...');
+        stompClient.send('/app/transmitir', {}, JSON.stringify({ action: 'list_emitentes' }));
+    }
+    
+    connectBtn.addEventListener('click', () => {
+        log('Tentando conectar ao WebSocket...');
+        const socket = new SockJS('/ws');
+        stompClient = Stomp.over(socket);
+        stompClient.connect({}, (frame) => {
+            log('Conexão WebSocket estabelecida: ' + frame);
+            setConnectionStatus(true);
+            requestEmitenteList();
+
+            stompClient.subscribe('/topic/responses', (response) => {
+                const parsedResponse = JSON.parse(response.body);
+                log(`RESPOSTA RECEBIDA (${parsedResponse.originalAction}):\n` + JSON.stringify(parsedResponse, null, 2));
+                
+                switch(parsedResponse.originalAction) {
+                    case 'list_emitentes':
+                        populateEmitenteSelect(parsedResponse.body);
+                        break;
+                    case 'register':
+                        if(parsedResponse.status === 200) {
+                            alert('Emitente cadastrado com sucesso!');
+                            requestEmitenteList(); // Recarrega a lista
+                        } else {
+                            alert('Erro no cadastro: ' + parsedResponse.message);
+                        }
+                        break;
+                    case 'transmit':
+                        // A resposta já foi logada, nada mais a fazer aqui por enquanto.
+                        break;
+                }
+            });
+        }, (error) => {
+            log('Erro de conexão WebSocket: ' + error);
+            setConnectionStatus(false);
+        });
+    });
+
+    emitenteSelect.addEventListener('change', () => {
+        const selectedCnpj = emitenteSelect.value;
+        if (selectedCnpj) {
+            localStorage.setItem('selectedCnpj', selectedCnpj);
+            const selected = emitentes.find(e => e.cnpj === selectedCnpj);
+            updateOperationsPanel(selected);
+        } else {
+            localStorage.removeItem('selectedCnpj');
+            updateOperationsPanel(null);
+        }
+    });
+
+    registerForm.addEventListener('submit', (e) => {
         e.preventDefault();
         if (!stompClient || !stompClient.connected) {
-          log("ERRO: Conecte ao WebSocket primeiro.");
-          return;
+            alert("ERRO: Conecte ao WebSocket primeiro.");
+            return;
         }
 
-        const fileInput = document.getElementById("certFile");
+        const fileInput = document.getElementById('certFile');
         const file = fileInput.files[0];
         if (!file) {
-          log("ERRO: Por favor, selecione um arquivo de certificado.");
-          return;
+            alert("ERRO: Por favor, selecione um arquivo de certificado.");
+            return;
         }
 
         const reader = new FileReader();
         reader.onload = (event) => {
-          const base64String = event.target.result.split(",")[1];
-
-          const payload = {
-            action: "register",
-            data: {
-              uf: document.getElementById("reg-uf").value,
-              tipo: document.getElementById("reg-tipo").value,
-              arquivoBase64: base64String,
-              senha: document.getElementById("reg-cert-pass").value,
-            },
-          };
-
-          stompClient.send("/app/transmitir", {}, JSON.stringify(payload));
-          log(
-            "ENVIADO (Registro Emitente):" + JSON.stringify(payload, null, 2),
-          );
+            const base64String = event.target.result.split(',')[1];
+            const payload = {
+                action: 'register',
+                data: {
+                    uf: document.getElementById('reg-uf').value,
+                    tipo: document.getElementById('reg-tipo').value,
+                    arquivoBase64: base64String,
+                    senha: document.getElementById('reg-cert-pass').value
+                }
+            };
+            stompClient.send("/app/transmitir", {}, JSON.stringify(payload));
+            log('ENVIADO (Registro Emitente):\n' + JSON.stringify(payload, (key, value) => key === 'arquivoBase64' ? '...' : value, 2));
         };
         reader.onerror = (error) => {
-          log("ERRO ao ler o arquivo: " + error);
+            log("ERRO ao ler o arquivo: " + error);
         };
         reader.readAsDataURL(file);
-      });
+    });
 
-      transmitForm.addEventListener("submit", (e) => {
-        e.preventDefault();
-        if (!stompClient || !stompClient.connected) {
-          log("ERRO: Conecte ao WebSocket primeiro."); 
-          return;
+    statusServicoBtn.addEventListener('click', () => {
+        const selectedCnpj = localStorage.getItem('selectedCnpj');
+        if (!selectedCnpj) {
+            alert('Nenhum emitente selecionado.');
+            return;
+        }
+        
+        const emitente = emitentes.find(e => e.cnpj === selectedCnpj);
+        const ufCode = UF_CODES[emitente.uf];
+        if(!ufCode) {
+            alert(`UF ${emitente.uf} não mapeada para código IBGE.`);
+            return;
         }
 
-        const payload = {
-          action: "transmit",
-          cnpj: document.getElementById("trans-cnpj").value,
-          servico: document.getElementById("trans-service").value,
-          xml: document.getElementById("trans-xml").value,
-        };
+        // Ambiente fixo em Homologação (2)
+        const xml = `<consStatServ xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><tpAmb>2</tpAmb><cUF>${ufCode}</cUF><xServ>STATUS</xServ></consStatServ>`;
 
+        const payload = {
+            action: 'transmit',
+            cnpj: selectedCnpj,
+            servico: 'NFeStatusServico4',
+            xml: xml
+        };
+        
         stompClient.send("/app/transmitir", {}, JSON.stringify(payload));
-        log("ENVIADO (Transmissão XML):" + JSON.stringify(payload, null, 2));
-      });
-    </script>
-  </body>
+        log('ENVIADO (Consulta Status):\n' + JSON.stringify(payload, null, 2));
+    });
+
+    // Initial state
+    setConnectionStatus(false);
+    updateOperationsPanel(null);
+</script>
+</body>
 </html>

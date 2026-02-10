@@ -2,13 +2,23 @@ package tech.vcinf.fiscalwebsocket.dto;
 
 public class FiscalResponse {
     private int status;
-    private String body;
+    private Object body;
     private String message;
+    private String originalAction;
 
-    public FiscalResponse(int status, String body, String message) {
+    public FiscalResponse(int status, Object body, String message, String originalAction) {
         this.status = status;
         this.body = body;
         this.message = message;
+        this.originalAction = originalAction;
+    }
+
+    public FiscalResponse(int status, Object body, String message) {
+        this(status, body, message, null);
+    }
+
+    public FiscalResponse(String originalAction, Object body) {
+        this(200, body, "Success", originalAction);
     }
 
     // Getters e Setters
@@ -21,11 +31,11 @@ public class FiscalResponse {
         this.status = status;
     }
 
-    public String getBody() {
+    public Object getBody() {
         return body;
     }
 
-    public void setBody(String body) {
+    public void setBody(Object body) {
         this.body = body;
     }
 
@@ -35,5 +45,13 @@ public class FiscalResponse {
 
     public void setMessage(String message) {
         this.message = message;
+    }
+
+    public String getOriginalAction() {
+        return originalAction;
+    }
+
+    public void setOriginalAction(String originalAction) {
+        this.originalAction = originalAction;
     }
 }

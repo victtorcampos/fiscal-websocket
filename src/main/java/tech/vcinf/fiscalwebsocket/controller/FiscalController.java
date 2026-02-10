@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.stereotype.Controller;
+import tech.vcinf.fiscalwebsocket.dto.EmitenteInfo;
 import tech.vcinf.fiscalwebsocket.dto.FiscalRequest;
 import tech.vcinf.fiscalwebsocket.dto.FiscalResponse;
 import tech.vcinf.fiscalwebsocket.model.Emitente;
@@ -25,10 +26,12 @@ import java.security.cert.X509Certificate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Controller
 public class FiscalController {
@@ -105,7 +108,14 @@ public class FiscalController {
 
 
                 emitenteRepository.save(emitente);
-                return new FiscalResponse(200, null, "Emitente registered successfully");
+                return new FiscalResponse(200, null, "Emitente registered successfully", "register");
+            }
+
+            if ("list_emitentes".equals(request.getAction())) {
+                List<EmitenteInfo> emitentes = emitenteRepository.findAll().stream()
+                        .map(e -> new EmitenteInfo(e.getCnpj(), e.getRazaoSocial(), e.getUf(), e.getTipo()))
+                        .collect(Collectors.toList());
+                return new FiscalResponse("list_emitentes", emitentes);
             }
 
             String cnpj = request.getCnpj();
@@ -158,10 +168,10 @@ public class FiscalController {
             log.setStatusHttp(response.statusCode());
             transactionLogRepository.save(log);
 
-            return new FiscalResponse(response.statusCode(), response.body(), "Success");
+            return new FiscalResponse(response.statusCode(), response.body(), "Success", "transmit");
         } catch (Exception e) {
             e.printStackTrace(); 
-            return new FiscalResponse(500, null, e.getClass().getSimpleName() + ": " + e.getMessage());
+            return new FiscalResponse(500, null, e.getClass().getSimpleName() + ": " + e.getMessage(), request.getAction());
         } finally {
             if (tempFile != null) {
                 tempFile.delete();
