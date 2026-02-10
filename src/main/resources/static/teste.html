@@ -11,7 +11,7 @@
         .form-section, .log-section { border: 1px solid #ccc; padding: 20px; margin-top: 20px; border-radius: 8px; }
         h2, h3 { border-bottom: 2px solid #eee; padding-bottom: 10px; }
         label { display: block; margin-top: 10px; }
-        input[type="text"], input[type="password"], textarea { width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box; }
+        input[type="text"], input[type="password"], textarea, select { width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box; }
         button { padding: 10px 15px; margin-top: 20px; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 5px; }
         button:disabled { background-color: #ccc; }
         #log { width: 100%; height: 400px; white-space: pre-wrap; background-color: #f4f4f4; border: 1px solid #ddd; margin-top: 10px; }
@@ -32,12 +32,15 @@
             <form id="registerForm">
                 <label for="reg-cnpj">CNPJ:</label>
                 <input type="text" id="reg-cnpj" value="02491588000159">
-                <label for="reg-razao">Razão Social:</label>
-                <input type="text" id="reg-razao" value="VERA SCHIMIT LTDA">
                 <label for="reg-uf">UF:</label>
                 <input type="text" id="reg-uf" value="MT">
-                <label for="reg-cert-path">Caminho do Certificado (no servidor):</label>
-                <input type="text" id="reg-cert-path" value="C:/certificado/VERA SCHIMIT LTDA02491588000159.pfx"">
+                 <label for="reg-tipo">Tipo Documento:</label>
+                <select id="reg-tipo">
+                    <option value="NFE">NFE</option>
+                    <option value="NFCE">NFCE</option>
+                </select>
+                <label for="certFile">Arquivo do Certificado (.pfx, .p12):</label>
+                <input type="file" id="certFile" accept=".pfx,.p12" required>
                 <label for="reg-cert-pass">Senha do Certificado:</label>
                 <input type="password" id="reg-cert-pass" value="12345">
                 <button type="submit">Registrar</button>
@@ -73,7 +76,8 @@
         let stompClient = null;
 
         function log(message) {
-            logArea.value += `[${new Date().toLocaleTimeString()}] ${message}\n`;
+            logArea.value += `[${new Date().toLocaleTimeString()}] ${message}
+`;
             logArea.scrollTop = logArea.scrollHeight;
         }
 
@@ -86,7 +90,8 @@
                 disconnectBtn.disabled = false;
 
                 stompClient.subscribe('/topic/responses', (response) => {
-                    log('RESPOSTA RECEBIDA:\n' + JSON.stringify(JSON.parse(response.body), null, 2));
+                    log('RESPOSTA RECEBIDA:
+' + JSON.stringify(JSON.parse(response.body), null, 2));
                 });
 
             }, (error) => {
@@ -111,19 +116,37 @@
                 return;
             }
 
-            const payload = {
-                action: 'register',
-                data: {
-                    cnpj: document.getElementById('reg-cnpj').value,
-                    razaoSocial: document.getElementById('reg-razao').value,
-                    uf: document.getElementById('reg-uf').value,
-                    caminhoCertificado: document.getElementById('reg-cert-path').value,
-                    senha: document.getElementById('reg-cert-pass').value
-                }
-            };
+            const fileInput = document.getElementById('certFile');
+            const file = fileInput.files[0];
+            if (!file) {
+                log("ERRO: Por favor, selecione um arquivo de certificado.");
+                return;
+            }
 
-            stompClient.send("/app/transmitir", {}, JSON.stringify(payload));
-            log('ENVIADO (Registro Emitente):\n' + JSON.stringify(payload, null, 2));
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                // A result property contains the data as a URL representing the file's data as a base64 encoded string.
+                const base64String = event.target.result.split(',')[1];
+
+                const payload = {
+                    action: 'register',
+                    data: {
+                        cnpj: document.getElementById('reg-cnpj').value,
+                        uf: document.getElementById('reg-uf').value,
+                        tipo: document.getElementById('reg-tipo').value,
+                        arquivoBase64: base64String,
+                        senha: document.getElementById('reg-cert-pass').value
+                    }
+                };
+
+                stompClient.send("/app/transmitir", {}, JSON.stringify(payload));
+                log('ENVIADO (Registro Emitente):
+' + JSON.stringify(payload, null, 2));
+            };
+            reader.onerror = (error) => {
+                log("ERRO ao ler o arquivo: " + error);
+            };
+            reader.readAsDataURL(file); // Reads the file as a data URL.
         });
 
         transmitForm.addEventListener('submit', (e) => {
@@ -141,7 +164,8 @@
             };
 
             stompClient.send("/app/transmitir", {}, JSON.stringify(payload));
-            log('ENVIADO (Transmissão XML):\n' + JSON.stringify(payload, null, 2));
+            log('ENVIADO (Transmissão XML):
+' + JSON.stringify(payload, null, 2));
         });
 
     </script>

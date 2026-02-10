@@ -70,7 +70,8 @@ public class FiscalController {
         File tempFile = null;
         try {
             if ("register".equals(request.getAction())) {
-                Map<String, Object> data = request.getData();
+                @SuppressWarnings("unchecked")
+                Map<String, Object> data = (Map<String, Object>) request.getData();
                 String cnpj = (String) data.get("cnpj");
                 String arquivoBase64 = (String) data.get("arquivoBase64");
                 String senha = (String) data.get("senha");

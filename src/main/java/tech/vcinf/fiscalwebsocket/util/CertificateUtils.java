@@ -2,6 +2,9 @@ package tech.vcinf.fiscalwebsocket.util;
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
+import javax.naming.InvalidNameException;
+import javax.naming.ldap.LdapName;
+import javax.naming.ldap.Rdn;
 import java.io.InputStream;
 import java.security.KeyStore;
 import java.security.Security;
@@ -36,19 +39,22 @@ public class CertificateUtils {
         info.put("validade", cert.getNotAfter().toString());
 
         String subjectDN = cert.getSubjectDN().getName();
-        // Example: CN=RAZAO SOCIAL:CNPJ, OU=..., O=..., C=...
-        String[] parts = subjectDN.split(",");
-        for (String part : parts) {
-            if (part.startsWith("CN=")) {
-                String cn = part.substring(3);
-                String[] cnParts = cn.split(":");
-                if (cnParts.length == 2) {
-                    info.put("razaoSocial", cnParts[0]);
-                    info.put("cnpj", cnParts[1]);
-                } else {
-                    info.put("razaoSocial", cn);
+        try {
+            LdapName ldapName = new LdapName(subjectDN);
+            for (Rdn rdn : ldapName.getRdns()) {
+                if (rdn.getType().equalsIgnoreCase("CN")) {
+                    String cn = rdn.getValue().toString();
+                    String[] cnParts = cn.split(":");
+                    if (cnParts.length == 2) {
+                        info.put("razaoSocial", cnParts[0]);
+                        info.put("cnpj", cnParts[1]);
+                    } else {
+                        info.put("razaoSocial", cn);
+                    }
                 }
             }
+        } catch (InvalidNameException e) {
+            System.err.println("Could not parse SubjectDN: " + e.getMessage());
         }
         return info;
     }
