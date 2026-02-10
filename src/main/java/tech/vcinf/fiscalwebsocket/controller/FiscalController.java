@@ -96,6 +96,8 @@ public class FiscalController {
             System.out.println("URL Serviço Sefaz: " + url);
 
             String xmlToSend = xml;
+
+            
             if (!SERVICES_WITHOUT_SIGNATURE.contains(servicoSimples)) {
                 tempFile = File.createTempFile("fiscal_xml_", ".xml");
                 try (FileWriter writer = new FileWriter(tempFile)) {
