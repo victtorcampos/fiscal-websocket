@@ -3,6 +3,7 @@ package tech.vcinf.fiscalwebsocket.model;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import java.time.LocalDateTime;
  
 @Entity
 public class Emitente {
@@ -16,6 +17,9 @@ public class Emitente {
     private String caminhoCertificado;
     private String senha;
     private String tipo;
+
+    @Column(nullable = true)
+    private LocalDateTime dValidate;
 
     // Getters and Setters
 
@@ -65,5 +69,13 @@ public class Emitente {
 
     public void setTipo(String tipo) {
         this.tipo = tipo;
+    }
+
+    public LocalDateTime getdValidate() {
+        return dValidate;
+    }
+
+    public void setdValidate(LocalDateTime dValidate) {
+        this.dValidate = dValidate;
     }
 }

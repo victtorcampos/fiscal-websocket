@@ -13,11 +13,18 @@ import tech.vcinf.fiscalwebsocket.repository.TransactionLogRepository;
 import tech.vcinf.fiscalwebsocket.service.SefazService;
 import tech.vcinf.fiscalwebsocket.service.UfWebService;
 import tech.vcinf.fiscalwebsocket.service.XmlSignatureService;
+import tech.vcinf.fiscalwebsocket.util.CertificateUtils;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
+import java.security.cert.X509Certificate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.Base64;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -63,7 +70,40 @@ public class FiscalController {
         File tempFile = null;
         try {
             if ("register".equals(request.getAction())) {
-                Emitente emitente = objectMapper.convertValue(request.getData(), Emitente.class);
+                Map<String, Object> data = request.getData();
+                String cnpj = (String) data.get("cnpj");
+                String arquivoBase64 = (String) data.get("arquivoBase64");
+                String senha = (String) data.get("senha");
+
+                byte[] pfxBytes = Base64.getDecoder().decode(arquivoBase64);
+                String certPath = "cert_" + cnpj + ".pfx";
+
+                try (FileOutputStream fos = new FileOutputStream(certPath)) {
+                    fos.write(pfxBytes);
+                }
+
+                X509Certificate certificate = CertificateUtils.getCertificate(new ByteArrayInputStream(pfxBytes), senha);
+                Map<String, String> certInfo = CertificateUtils.extractInfo(certificate);
+
+                String certCnpj = certInfo.get("cnpj");
+                if (certCnpj != null && !certCnpj.equals(cnpj)) {
+                    throw new IllegalArgumentException("CNPJ do certificado (" + certCnpj + ") não corresponde ao CNPJ informado (" + cnpj + ")");
+                }
+
+                Emitente emitente = emitenteRepository.findById(cnpj).orElse(new Emitente());
+                emitente.setCnpj(cnpj);
+                emitente.setSenha(senha);
+                emitente.setCaminhoCertificado(certPath);
+                emitente.setRazaoSocial(certInfo.get("razaoSocial"));
+                
+                LocalDateTime validity = LocalDateTime.ofInstant(certificate.getNotAfter().toInstant(), ZoneId.systemDefault());
+                emitente.setdValidate(validity);
+
+                
+                emitente.setUf((String) data.get("uf"));
+                emitente.setTipo((String) data.get("tipo"));
+
+
                 emitenteRepository.save(emitente);
                 return new FiscalResponse(200, null, "Emitente registered successfully");
             }
@@ -80,7 +120,7 @@ public class FiscalController {
                 if (servicoCompleto.toUpperCase().contains("NFCE")) {
                     modelo = "NFCE";
                 } else {
-                    modelo = "NFE"; // Fallback for services like status check
+                    modelo = "NFE"; 
                 }
             }
 
@@ -120,7 +160,7 @@ public class FiscalController {
 
             return new FiscalResponse(response.statusCode(), response.body(), "Success");
         } catch (Exception e) {
-            e.printStackTrace(); // For better logging
+            e.printStackTrace(); 
             return new FiscalResponse(500, null, e.getClass().getSimpleName() + ": " + e.getMessage());
         } finally {
             if (tempFile != null) {
@@ -135,6 +175,6 @@ public class FiscalController {
         if (matcher.find()) {
             return matcher.group(1);
         }
-        return null; // Tag not found
+        return null; 
     }
 }
