@@ -18,6 +18,9 @@ import java.io.File;
 import java.io.FileWriter;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Controller
 public class FiscalController {
@@ -28,6 +31,14 @@ public class FiscalController {
     private final XmlSignatureService xmlSignatureService;
     private final SefazService sefazService;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    private static final Map<String, String> SERVICE_NAME_MAP = Map.of(
+            "NFeStatusServico4", "STATUS",
+            "NFeAutorizacao4", "AUTORIZACAO",
+            "NFeRetAutorizacao4", "RET_AUTORIZACAO",
+            "NFeConsulta4", "CONSULTA",
+            "NFeInutilizacao4", "INUTILIZACAO"
+    );
 
     public FiscalController(EmitenteRepository emitenteRepository,
                             TransactionLogRepository transactionLogRepository,
@@ -53,12 +64,25 @@ public class FiscalController {
 
             String cnpj = request.getCnpj();
             String xml = request.getXml();
-            String servico = request.getServico();
+            String servicoCompleto = request.getServico();
 
             Emitente emitente = emitenteRepository.findById(cnpj)
-                    .orElseThrow(() -> new RuntimeException("Emitente not found"));
+                    .orElseThrow(() -> new RuntimeException("Emitente not found: " + cnpj));
 
-            String url = ufWebService.getUrl(emitente.getUf(), servico);
+            // Extract model and environment from XML
+            String modelo = extractFromXml(xml, "mod");
+            if (modelo == null) { // Fallback for services like status check
+                modelo = "NFE"; // Default or determine from service name
+            }
+            String ambiente = extractFromXml(xml, "tpAmb").equals("1") ? "PROD" : "HOMOL";
+
+            // Get simplified service name
+            String servicoSimples = SERVICE_NAME_MAP.get(servicoCompleto);
+            if (servicoSimples == null) {
+                throw new IllegalArgumentException("Serviço não mapeado: " + servicoCompleto);
+            }
+
+            String url = ufWebService.getUrl(modelo, servicoSimples, emitente.getUf(), ambiente);
 
             File xmlFile = new File("temp.xml");
             try (FileWriter writer = new FileWriter(xmlFile)) {
@@ -69,18 +93,34 @@ public class FiscalController {
 
             String signedXml = new String(Files.readAllBytes(xmlFile.toPath()));
 
-            HttpResponse<String> response = sefazService.send(url, signedXml, emitente, servico);
+            HttpResponse<String> response = sefazService.send(url, signedXml, emitente, servicoCompleto);
 
             TransactionLog log = new TransactionLog();
             log.setCnpj(cnpj);
-            log.setXmlEnviado(xml); // Logs the original XML
+            log.setXmlEnviado(xml);
             log.setXmlResposta(response.body());
             log.setStatusHttp(response.statusCode());
             transactionLogRepository.save(log);
 
             return new FiscalResponse(response.statusCode(), response.body(), "Success");
         } catch (Exception e) {
-            return new FiscalResponse(500, null, e.getMessage());
+            e.printStackTrace(); // For better logging
+            return new FiscalResponse(500, null, e.getClass().getSimpleName() + ": " + e.getMessage());
         }
+    }
+
+    private String extractFromXml(String xml, String tagName) {
+        Pattern pattern = Pattern.compile("<" + tagName + ">(.+?)</" + tagName + ">");
+        Matcher matcher = pattern.matcher(xml);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        // Attempt to find in self-closing tag
+        pattern = Pattern.compile("<" + tagName + "\\s*/>");
+        matcher = pattern.matcher(xml);
+         if (matcher.find()) {
+            return ""; // Or a more appropriate value
+        }
+        return null; // Tag not found
     }
 }
