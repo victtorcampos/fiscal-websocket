@@ -1,176 +1,231 @@
-<!DOCTYPE html>
-<html lang=\"pt-BR\">
-<head>
-    <meta charset=\"UTF-8\">
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
     <title>Página de Teste Fiscal WebSocket</title>
-    <script src=\"https://cdn.jsdelivr.net/npm/sockjs-client@1.5.1/dist/sockjs.min.js\"></script>
-    <script src=\"https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js\"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1.5.1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
     <style>
-        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; }
-        .container { width: 90%; max-width: 1200px; }
-        .form-section, .log-section { border: 1px solid #ccc; padding: 20px; margin-top: 20px; border-radius: 8px; }
-        h2, h3 { border-bottom: 2px solid #eee; padding-bottom: 10px; }
-        label { display: block; margin-top: 10px; }
-        input[type=\"text\"], input[type=\"password\"], textarea, select { width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box; }
-        button { padding: 10px 15px; margin-top: 20px; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 5px; }
-        button:disabled { background-color: #ccc; }
-        #log { width: 100%; height: 400px; white-space: pre-wrap; background-color: #f4f4f4; border: 1px solid #ddd; margin-top: 10px; }
+      body {
+        font-family: sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      .container {
+        width: 90%;
+        max-width: 1200px;
+      }
+      .form-section,
+      .log-section {
+        border: 1px solid #ccc;
+        padding: 20px;
+        margin-top: 20px;
+        border-radius: 8px;
+      }
+      h2,
+      h3 {
+        border-bottom: 2px solid #eee;
+        padding-bottom: 10px;
+      }
+      label {
+        display: block;
+        margin-top: 10px;
+      }
+      input[type="text"],
+      input[type="password"],
+      textarea,
+      select {
+        width: 100%;
+        padding: 8px;
+        margin-top: 5px;
+        box-sizing: border-box;
+      }
+      button {
+        padding: 10px 15px;
+        margin-top: 20px;
+        cursor: pointer;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 5px;
+      }
+      button:disabled {
+        background-color: #ccc;
+      }
+      #log {
+        width: 100%;
+        height: 400px;
+        white-space: pre-wrap;
+        background-color: #f4f4f4;
+        border: 1px solid #ddd;
+        margin-top: 10px;
+      }
     </style>
-</head>
-<body>
-    <div class=\"container\">
-        <h2>Página de Teste - Middleware Fiscal</h2>
+  </head>
+  <body>
+    <div class="container">
+      <h2>Página de Teste - Middleware Fiscal</h2>
 
-        <div class=\"form-section\">
-            <h3>1. Conexão</h3>
-            <button id=\"connectBtn\">Conectar ao WebSocket</button>
-            <button id=\"disconnectBtn\" disabled>Desconectar</button>
-        </div>
+      <div class="form-section">
+        <h3>1. Conexão</h3>
+        <button id="connectBtn">Conectar ao WebSocket</button>
+        <button id="disconnectBtn" disabled>Desconectar</button>
+      </div>
 
-        <div class="form-section">
-            <h3>2. Cadastrar Emitente (Via Certificado)</h3>
-            <form id="registerForm">
-                <label for="reg-uf">UF:</label>
-                <select id="reg-uf" required>
-                    <option value="MT">Mato Grosso (MT)</option>
-                    <option value="RS">Rio Grande do Sul (RS)</option>
-                    <option value="SP">São Paulo (SP)</option>
-                    <option value="PR">Paraná (PR)</option>
-                    <!-- Adicionar outros se necessário -->
-                </select>
+      <div class="form-section">
+        <h3>2. Cadastrar Emitente (Via Certificado)</h3>
+        <form id="registerForm">
+          <label for="reg-uf">UF:</label>
+          <select id="reg-uf" required>
+            <option value="MT">Mato Grosso (MT)</option>
+            <option value="RS">Rio Grande do Sul (RS)</option>
+            <option value="SP">São Paulo (SP)</option>
+            <option value="PR">Paraná (PR)</option>
+            <!-- Adicionar outros se necessário -->
+          </select>
 
-                <label for="reg-tipo">Tipo de Documento:</label>
-                <select id="reg-tipo" required>
-                    <option value="A1">Certificado A1 (Arquivo)</option>
-                    <!-- A3 e Repositório Windows serão implementados futuramente -->
-                </select>
+          <label for="reg-tipo">Tipo de Documento:</label>
+          <select id="reg-tipo" required>
+            <option value="A1">Certificado A1 (Arquivo)</option>
+            <!-- A3 e Repositório Windows serão implementados futuramente -->
+          </select>
 
-                <label for="certFile">Arquivo do Certificado (.pfx, .p12):</label>
-                <input type="file" id="certFile" accept=".pfx,.p12" required>
+          <label for="certFile">Arquivo do Certificado (.pfx, .p12):</label>
+          <input type="file" id="certFile" accept=".pfx,.p12" required />
 
-                <label for="reg-cert-pass">Senha do Certificado:</label>
-                <input type="password" id="reg-cert-pass" value="12345" required>
+          <label for="reg-cert-pass">Senha do Certificado:</label>
+          <input type="password" id="reg-cert-pass" value="12345" required />
 
-                <button type="submit">Gravar Emitente</button>
-            </form>
-        </div>
+          <button type="submit">Gravar Emitente</button>
+        </form>
+      </div>
 
-        <div class=\"form-section\">
-            <h3>3. Transmitir Documento</h3>
-            <form id=\"transmitForm\">
-                <label for=\"trans-cnpj\">CNPJ do Emitente:</label>
-                <input type=\"text\" id=\"trans-cnpj\" value=\"02491588000159\">
-                <label for=\"trans-service\">Serviço SEFAZ:</label>
-                <input type=\"text\" id=\"trans-service\" value=\"NFeStatusServico4\">
-                <label for=\"trans-xml\">XML do Documento:</label>
-                <textarea id=\"trans-xml\" rows=\"10\"><consStatServ xmlns=\"http://www.portalfiscal.inf.br/nfe\" versao=\"4.00\"><tpAmb>1</tpAmb><cUF>51</cUF><xServ>STATUS</xServ></consStatServ></textarea>
-                <button type=\"submit\">Transmitir</button>
-            </form>
-        </div>
+      <div class="form-section">
+        <h3>3. Transmitir Documento</h3>
+        <form id="transmitForm">
+          <label for="trans-cnpj">CNPJ do Emitente:</label>
+          <input type="text" id="trans-cnpj" value="02491588000159" />
+          <label for="trans-service">Serviço SEFAZ:</label>
+          <input type="text" id="trans-service" value="NFeStatusServico4" />
+          <label for="trans-xml">XML do Documento:</label>
+          <textarea id="trans-xml" rows="10">
+<consStatServ xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><tpAmb>1</tpAmb><cUF>51</cUF><xServ>STATUS</xServ></consStatServ></textarea
+          >
+          <button type="submit">Transmitir</button>
+        </form>
+      </div>
 
-        <div class=\"log-section\">
-            <h3>Logs da Comunicação</h3>
-            <textarea id=\"log\" readonly></textarea>
-        </div>
+      <div class="log-section">
+        <h3>Logs da Comunicação</h3>
+        <textarea id="log" readonly></textarea>
+      </div>
     </div>
 
     <script>
-        const connectBtn = document.getElementById('connectBtn');
-        const disconnectBtn = document.getElementById('disconnectBtn');
-        const registerForm = document.getElementById('registerForm');
-        const transmitForm = document.getElementById('transmitForm');
-        const logArea = document.getElementById('log');
+      const connectBtn = document.getElementById("connectBtn");
+      const disconnectBtn = document.getElementById("disconnectBtn");
+      const registerForm = document.getElementById("registerForm");
+      const transmitForm = document.getElementById("transmitForm");
+      const logArea = document.getElementById("log");
 
-        let stompClient = null;
+      let stompClient = null;
 
-        function log(message) {
-            logArea.value += `[${new Date().toLocaleTimeString()}] ${message}\
+      function log(message) {
+        logArea.value += `[${new Date().toLocaleTimeString()}] ${message}\
 `;
-            logArea.scrollTop = logArea.scrollHeight;
+        logArea.scrollTop = logArea.scrollHeight;
+      }
+
+      connectBtn.addEventListener("click", () => {
+        const socket = new SockJS("/ws");
+        stompClient = Stomp.over(socket);
+        stompClient.connect(
+          {},
+          (frame) => {
+            log("Conectado ao servidor WebSocket: " + frame);
+            connectBtn.disabled = true;
+            disconnectBtn.disabled = false;
+
+            stompClient.subscribe("/topic/responses", (response) => {
+              log(
+                "RESPOSTA RECEBIDA:" +
+                  JSON.stringify(JSON.parse(response.body), null, 2),
+              );
+            });
+          },
+          (error) => {
+            log("Erro de conexão: " + error);
+          },
+        );
+      });
+
+      disconnectBtn.addEventListener("click", () => {
+        if (stompClient !== null) {
+          stompClient.disconnect(() => {
+            log("Desconectado do servidor.");
+            connectBtn.disabled = false;
+            disconnectBtn.disabled = true;
+          });
+        }
+      });
+
+      registerForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        if (!stompClient || !stompClient.connected) {
+          log("ERRO: Conecte ao WebSocket primeiro.");
+          return;
         }
 
-        connectBtn.addEventListener('click', () => {
-            const socket = new SockJS('/ws');
-            stompClient = Stomp.over(socket);
-            stompClient.connect({}, (frame) => {
-                log('Conectado ao servidor WebSocket: ' + frame);
-                connectBtn.disabled = true;
-                disconnectBtn.disabled = false;
+        const fileInput = document.getElementById("certFile");
+        const file = fileInput.files[0];
+        if (!file) {
+          log("ERRO: Por favor, selecione um arquivo de certificado.");
+          return;
+        }
 
-                stompClient.subscribe('/topic/responses', (response) => {
-                    log('RESPOSTA RECEBIDA:' + JSON.stringify(JSON.parse(response.body), null, 2));
-                });
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const base64String = event.target.result.split(",")[1];
 
-            }, (error) => {
-                log('Erro de conexão: ' + error);
-            });
-        });
+          const payload = {
+            action: "register",
+            data: {
+              uf: document.getElementById("reg-uf").value,
+              tipo: document.getElementById("reg-tipo").value,
+              arquivoBase64: base64String,
+              senha: document.getElementById("reg-cert-pass").value,
+            },
+          };
 
-        disconnectBtn.addEventListener('click', () => {
-            if (stompClient !== null) {
-                stompClient.disconnect(() => {
-                    log('Desconectado do servidor.');
-                    connectBtn.disabled = false;
-                    disconnectBtn.disabled = true;
-                });
-            }
-        });
+          stompClient.send("/app/transmitir", {}, JSON.stringify(payload));
+          log(
+            "ENVIADO (Registro Emitente):" + JSON.stringify(payload, null, 2),
+          );
+        };
+        reader.onerror = (error) => {
+          log("ERRO ao ler o arquivo: " + error);
+        };
+        reader.readAsDataURL(file);
+      });
 
-        registerForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            if (!stompClient || !stompClient.connected) {
-                log(\"ERRO: Conecte ao WebSocket primeiro.\");
-                return;
-            }
+      transmitForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        if (!stompClient || !stompClient.connected) {
+          log("ERRO: Conecte ao WebSocket primeiro.");
+          return;
+        }
 
-            const fileInput = document.getElementById('certFile');
-            const file = fileInput.files[0];
-            if (!file) {
-                log(\"ERRO: Por favor, selecione um arquivo de certificado.\");
-                return;
-            }
+        const payload = {
+          action: "transmit",
+          cnpj: document.getElementById("trans-cnpj").value,
+          servico: document.getElementById("trans-service").value,
+          xml: document.getElementById("trans-xml").value,
+        };
 
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const base64String = event.target.result.split(',')[1];
-
-                const payload = {
-                    action: 'register',
-                    data: {
-                        uf: document.getElementById('reg-uf').value,
-                        tipo: document.getElementById('reg-tipo').value,
-                        arquivoBase64: base64String,
-                        senha: document.getElementById('reg-cert-pass').value
-                    }
-                };
-
-                stompClient.send(\"/app/transmitir\", {}, JSON.stringify(payload));
-                log('ENVIADO (Registro Emitente):' + JSON.stringify(payload, null, 2));
-            };
-            reader.onerror = (error) => {
-                log(\"ERRO ao ler o arquivo: \" + error);
-            };
-            reader.readAsDataURL(file);
-        });
-
-        transmitForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            if (!stompClient || !stompClient.connected) {
-                log(\"ERRO: Conecte ao WebSocket primeiro.\");
-                return;
-            }
-
-            const payload = {
-                action: 'transmit',
-                cnpj: document.getElementById('trans-cnpj').value,
-                servico: document.getElementById('trans-service').value,
-                xml: document.getElementById('trans-xml').value
-            };
-
-            stompClient.send(\"/app/transmitir\", {}, JSON.stringify(payload));
-            log('ENVIADO (Transmissão XML):' + JSON.stringify(payload, null, 2));
-        });
-
+        stompClient.send("/app/transmitir", {}, JSON.stringify(payload));
+        log("ENVIADO (Transmissão XML):" + JSON.stringify(payload, null, 2));
+      });
     </script>
-</body>
+  </body>
 </html>
