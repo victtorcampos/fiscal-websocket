@@ -72,23 +72,22 @@ public class FiscalController {
             if ("register".equals(request.getAction())) {
                 @SuppressWarnings("unchecked")
                 Map<String, Object> data = (Map<String, Object>) request.getData();
-                String cnpj = (String) data.get("cnpj");
                 String arquivoBase64 = (String) data.get("arquivoBase64");
                 String senha = (String) data.get("senha");
 
                 byte[] pfxBytes = Base64.getDecoder().decode(arquivoBase64);
-                String certPath = "cert_" + cnpj + ".pfx";
-
-                try (FileOutputStream fos = new FileOutputStream(certPath)) {
-                    fos.write(pfxBytes);
-                }
 
                 X509Certificate certificate = CertificateUtils.getCertificate(new ByteArrayInputStream(pfxBytes), senha);
                 Map<String, String> certInfo = CertificateUtils.extractInfo(certificate);
 
-                String certCnpj = certInfo.get("cnpj");
-                if (certCnpj != null && !certCnpj.equals(cnpj)) {
-                    throw new IllegalArgumentException("CNPJ do certificado (" + certCnpj + ") não corresponde ao CNPJ informado (" + cnpj + ")");
+                String cnpj = certInfo.get("cnpj");
+                if (cnpj == null || cnpj.isEmpty()) {
+                    throw new IllegalArgumentException("Não foi possível extrair o CNPJ do certificado digital.");
+                }
+                String certPath = "cert_" + cnpj + ".pfx";
+
+                try (FileOutputStream fos = new FileOutputStream(certPath)) {
+                    fos.write(pfxBytes);
                 }
 
                 Emitente emitente = emitenteRepository.findById(cnpj).orElse(new Emitente());
