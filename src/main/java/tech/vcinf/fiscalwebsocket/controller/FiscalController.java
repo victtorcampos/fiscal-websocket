@@ -84,6 +84,8 @@ public class FiscalController {
 
             String url = ufWebService.getUrl(modelo, servicoSimples, emitente.getUf(), ambiente);
 
+            System.out.println("URL Serviço Sefaz: " + url);
+
             File xmlFile = new File("temp.xml");
             try (FileWriter writer = new FileWriter(xmlFile)) {
                 writer.write(xml);
