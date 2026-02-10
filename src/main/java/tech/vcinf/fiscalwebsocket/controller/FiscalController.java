@@ -19,6 +19,7 @@ import java.io.FileWriter;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -37,8 +38,12 @@ public class FiscalController {
             "NFeAutorizacao4", "AUTORIZACAO",
             "NFeRetAutorizacao4", "RET_AUTORIZACAO",
             "NFeConsulta4", "CONSULTA",
-            "NFeInutilizacao4", "INUTILIZACAO"
+            "NFeInutilizacao4", "INUTILIZACAO",
+            "RecepcaoEvento4", "EVENTO",
+            "CadConsultaCadastro4", "CONSULTA_CADASTRO"
     );
+
+    private static final Set<String> SERVICES_WITHOUT_SIGNATURE = Set.of("STATUS", "CONSULTA", "CONSULTA_CADASTRO", "RET_AUTORIZACAO");
 
     public FiscalController(EmitenteRepository emitenteRepository,
                             TransactionLogRepository transactionLogRepository,
@@ -55,6 +60,7 @@ public class FiscalController {
     @MessageMapping("/transmitir")
     @SendTo("/topic/responses")
     public FiscalResponse transmitir(FiscalRequest request) {
+        File tempFile = null;
         try {
             if ("register".equals(request.getAction())) {
                 Emitente emitente = objectMapper.convertValue(request.getData(), Emitente.class);
@@ -69,14 +75,17 @@ public class FiscalController {
             Emitente emitente = emitenteRepository.findById(cnpj)
                     .orElseThrow(() -> new RuntimeException("Emitente not found: " + cnpj));
 
-            // Extract model and environment from XML
             String modelo = extractFromXml(xml, "mod");
-            if (modelo == null) { // Fallback for services like status check
-                modelo = "NFE"; // Default or determine from service name
+            if (modelo == null) {
+                if (servicoCompleto.toUpperCase().contains("NFCE")) {
+                    modelo = "NFCE";
+                } else {
+                    modelo = "NFE"; // Fallback for services like status check
+                }
             }
-            String ambiente = extractFromXml(xml, "tpAmb").equals("1") ? "PROD" : "HOMOL";
 
-            // Get simplified service name
+            String ambiente = "1".equals(extractFromXml(xml, "tpAmb")) ? "PROD" : "HOMOL";
+
             String servicoSimples = SERVICE_NAME_MAP.get(servicoCompleto);
             if (servicoSimples == null) {
                 throw new IllegalArgumentException("Serviço não mapeado: " + servicoCompleto);
@@ -86,16 +95,19 @@ public class FiscalController {
 
             System.out.println("URL Serviço Sefaz: " + url);
 
-            File xmlFile = new File("temp.xml");
-            try (FileWriter writer = new FileWriter(xmlFile)) {
-                writer.write(xml);
+            String xmlToSend = xml;
+            if (!SERVICES_WITHOUT_SIGNATURE.contains(servicoSimples)) {
+                tempFile = File.createTempFile("fiscal_xml_", ".xml");
+                try (FileWriter writer = new FileWriter(tempFile)) {
+                    writer.write(xml);
+                }
+
+                xmlSignatureService.sign(tempFile.getAbsolutePath(), emitente.getCaminhoCertificado(), emitente.getSenha());
+                xmlToSend = new String(Files.readAllBytes(tempFile.toPath()));
             }
 
-            xmlSignatureService.sign(xmlFile.getAbsolutePath(), emitente.getCaminhoCertificado(), emitente.getSenha());
 
-            String signedXml = new String(Files.readAllBytes(xmlFile.toPath()));
-
-            HttpResponse<String> response = sefazService.send(url, signedXml, emitente, servicoCompleto);
+            HttpResponse<String> response = sefazService.send(url, xmlToSend, emitente, servicoCompleto);
 
             TransactionLog log = new TransactionLog();
             log.setCnpj(cnpj);
@@ -108,20 +120,18 @@ public class FiscalController {
         } catch (Exception e) {
             e.printStackTrace(); // For better logging
             return new FiscalResponse(500, null, e.getClass().getSimpleName() + ": " + e.getMessage());
+        } finally {
+            if (tempFile != null) {
+                tempFile.delete();
+            }
         }
     }
 
     private String extractFromXml(String xml, String tagName) {
-        Pattern pattern = Pattern.compile("<" + tagName + ">(.+?)</" + tagName + ">");
+        Pattern pattern = Pattern.compile("<" + tagName + ">([^<]+)</" + tagName + ">");
         Matcher matcher = pattern.matcher(xml);
         if (matcher.find()) {
             return matcher.group(1);
-        }
-        // Attempt to find in self-closing tag
-        pattern = Pattern.compile("<" + tagName + "\\s*/>");
-        matcher = pattern.matcher(xml);
-         if (matcher.find()) {
-            return ""; // Or a more appropriate value
         }
         return null; // Tag not found
     }
