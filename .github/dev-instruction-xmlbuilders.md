@@ -135,6 +135,7 @@ public class XmlBuilderConfig {
 | RS | 43 |
 | PR | 41 |
 | SC | 42 |
+| MG | 31 |
 
 #### Adaptação por Modelo
 - **NFE:** `xmlns="http://www.portalfiscal.inf.br/nfe"`
@@ -361,8 +362,16 @@ public class ConsStatServBuilder implements XmlBuilder {
 
     // Mapeamento UF → Código IBGE
     private static final Map<String, String> UF_CODES = Map.of(
-        //MT: 51
-        //SP: 35
+        "MT", "51",  // Mato Grosso
+        "SP", "35",  // São Paulo
+        "GO", "52",  // Goiás
+        "MS", "50",  // Mato Grosso do Sul
+        "RS", "43",  // Rio Grande do Sul
+        "PR", "41",  // Paraná
+        "SC", "42",  // Santa Catarina
+        "MG", "31"   // Minas Gerais
+        // NOTA: Map.of() suporta no máximo 10 pares chave-valor.
+        // Para adicionar mais UFs, use HashMap em bloco static {}
     );
 
     @Override
