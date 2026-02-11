@@ -126,12 +126,15 @@ public class XmlBuilderConfig {
 ```
 
 #### Mapeamento UF → Código IBGE
-| UF | Código | UF | Código |
-|----|--------|----|----|
-| MT | 51 | RS | 43 |
-| SP | 35 | PR | 41 |
-| GO | 52 | SC | 42 |
-| MS | 50 | MG | 31 |
+| UF | Código |
+|----|--------|
+| MT | 51 |
+| SP | 35 |
+| GO | 52 |
+| MS | 50 |
+| RS | 43 |
+| PR | 41 |
+| SC | 42 |
 
 #### Adaptação por Modelo
 - **NFE:** `xmlns="http://www.portalfiscal.inf.br/nfe"`
@@ -358,8 +361,8 @@ public class ConsStatServBuilder implements XmlBuilder {
 
     // Mapeamento UF → Código IBGE
     private static final Map<String, String> UF_CODES = Map.of(
-        "MT", "51", "RS", "43", "SP", "35", "PR", "41",
-        "GO", "52", "SC", "42", "MS", "50", "MG", "31"
+        //MT: 51
+        //SP: 35
     );
 
     @Override
