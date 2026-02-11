@@ -8,10 +8,7 @@ import java.security.SecureRandom;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Enumeration;
-import java.util.List;
+import java.util.*;
 
 public class CacertUtil {
 
@@ -45,7 +42,6 @@ public class CacertUtil {
 
         CertificateFactory cf = CertificateFactory.getInstance("X.509");
 
-        // 1. Baixar certificados raiz da ICP-Brasil
         for (String urlString : ICP_BRASIL_URLS) {
             try {
                 System.out.println("Baixando certificado raiz ICP-Brasil de: " + urlString);
@@ -61,12 +57,10 @@ public class CacertUtil {
             }
         }
 
-        // 2. NOVO: Extrair certificados dos servidores SEFAZ
         System.out.println("\n--- Extraindo Certificados dos Servidores SEFAZ ---");
         extractCertificatesFromUrls(keyStore, "src/main/resources/sefaz-urls.ini");
         System.out.println("--- Extração de Certificados SEFAZ Concluída ---\n");
 
-        // 3. Salvar o KeyStore
         try (FileOutputStream fos = new FileOutputStream(cacertFile)) {
             keyStore.store(fos, CACERT_PASSWORD.toCharArray());
             System.out.println("Arquivo 'cacert' criado com sucesso em: " + cacertFile.getAbsolutePath());
@@ -80,7 +74,7 @@ public class CacertUtil {
             return;
         }
 
-        List<String> urls = new ArrayList<>();
+        Set<String> hosts = new HashSet<>();
         try (BufferedReader reader = new BufferedReader(new FileReader(iniFile))) {
             String line;
             while ((line = reader.readLine()) != null) {
@@ -91,49 +85,51 @@ public class CacertUtil {
                 if (line.contains("=")) {
                     String url = line.substring(line.indexOf('=') + 1).trim();
                     if (url.startsWith("https://")) {
-                        urls.add(url);
+                        try {
+                            URL parsedUrl = new URL(url);
+                            hosts.add(parsedUrl.getHost());
+                        } catch (Exception e) {
+                            System.err.println("AVISO: URL inválida ignorada: " + url);
+                        }
                     }
                 }
             }
         }
 
-        System.out.println("Total de URLs SEFAZ encontradas: " + urls.size());
+        System.out.println("Total de hosts SEFAZ únicos encontrados: " + hosts.size());
 
-        for (String urlString : urls) {
+        for (String host : hosts) {
             try {
-                System.out.println("Extraindo certificados de: " + urlString);
+                 System.out.println("Extraindo certificados de: " + host);
+                extractCertificatesViaSocket(keyStore, host);
+            } catch (Exception e) {
+                System.err.println("AVISO: Falha ao extrair certificados de " + host + ". Erro: " + e.getMessage());
+            }
+        }
+    }
 
-                URL url = new URL(urlString);
-                HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
+    private static void extractCertificatesViaSocket(KeyStore keyStore, String host) throws Exception {
+        SSLSocketFactory factory = createTrustAllSSLContext().getSocketFactory();
 
-                conn.setConnectTimeout(5000);
-                conn.setReadTimeout(5000);
+        try (SSLSocket socket = (SSLSocket) factory.createSocket(host, 443)) {
+            socket.setSoTimeout(10000); // 10 segundos de timeout para leitura
+            socket.startHandshake();
 
-                conn.setSSLSocketFactory(createTrustAllSSLContext().getSocketFactory());
-                conn.setHostnameVerifier((hostname, session) -> true);
+            Certificate[] serverCerts = socket.getSession().getPeerCertificates();
 
-                conn.connect();
+            for (int i = 0; i < serverCerts.length; i++) {
+                if (serverCerts[i] instanceof X509Certificate) {
+                    X509Certificate cert = (X509Certificate) serverCerts[i];
 
-                Certificate[] serverCerts = conn.getServerCertificates();
+                    String hostAlias = host.replace(".", "_");
+                    String alias = "sefaz-" + hostAlias + "-cert" + i;
 
-                for (int i = 0; i < serverCerts.length; i++) {
-                    if (serverCerts[i] instanceof X509Certificate) {
-                        X509Certificate cert = (X509Certificate) serverCerts[i];
-
-                        String host = url.getHost().replace(".", "_");
-                        String alias = "sefaz-" + host + "-cert" + i;
-
-                        if (!keyStore.containsAlias(alias)) {
-                            keyStore.setCertificateEntry(alias, cert);
-                            System.out.println("  → Certificado adicionado: " + alias + " (Subject: " + cert.getSubjectX500Principal().getName() + ")");
-                        }
+                    if (!keyStore.containsAlias(alias)) {
+                        keyStore.setCertificateEntry(alias, cert);
+                        System.out.println("  → Certificado adicionado: " + alias);
+                        System.out.println("     Subject: " + cert.getSubjectX500Principal().getName());
                     }
                 }
-
-                conn.disconnect();
-
-            } catch (Exception e) {
-                System.err.println("AVISO: Falha ao extrair certificados de " + urlString + ". Erro: " + e.getMessage());
             }
         }
     }
@@ -161,7 +157,7 @@ public class CacertUtil {
             }
         } else {
             System.err.println("AVISO: Arquivo 'cacert' customizado não encontrado. Usando apenas o truststore padrão da JVM.");
-            customTrustStore.load(null, CACERT_PASSWORD.toCharArray()); // Inicia vazio
+            customTrustStore.load(null, CACERT_PASSWORD.toCharArray());
         }
 
         KeyStore defaultTrustStore = KeyStore.getInstance(KeyStore.getDefaultType());
