@@ -5,8 +5,8 @@ target/
 !**/src/test/**/target/
 
 ### Cert
-.pfx
-.p12
+*.pfx
+*.p12
 
 ### STS ###
 .apt_generated
