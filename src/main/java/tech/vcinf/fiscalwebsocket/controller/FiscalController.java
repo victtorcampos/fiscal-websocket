@@ -20,7 +20,6 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
-import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.security.cert.X509Certificate;
 import java.time.LocalDateTime;
@@ -159,16 +158,16 @@ public class FiscalController {
             }
 
 
-            HttpResponse<String> response = sefazService.send(url, xmlToSend, emitente, servicoCompleto);
+            String responseBody = sefazService.send(url, xmlToSend, emitente, servicoCompleto);
 
             TransactionLog log = new TransactionLog();
             log.setCnpj(cnpj);
             log.setXmlEnviado(xml);
-            log.setXmlResposta(response.body());
-            log.setStatusHttp(response.statusCode());
+            log.setXmlResposta(responseBody);
+            log.setStatusHttp(200); // Assumindo sucesso (200 OK) se nenhuma exceção foi lançada
             transactionLogRepository.save(log);
 
-            return new FiscalResponse(response.statusCode(), response.body(), "Success", "transmit");
+            return new FiscalResponse(200, responseBody, "Success", "transmit");
         } catch (Exception e) {
             e.printStackTrace(); 
             return new FiscalResponse(500, null, e.getClass().getSimpleName() + ": " + e.getMessage(), request.getAction());
