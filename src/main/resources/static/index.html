@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fiscal WebSocket</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/stompjs@2.3.3/lib/stomp.min.js"></script>
+    <style>
+        /* Estilos gerais */
+        body { font-family: sans-serif; margin: 0; background-color: #f4f4f4; }
+        .container { max-width: 1200px; margin: 20px auto; padding: 20px; background-color: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h1, h2, h3 { color: #333; }
+        button { padding: 10px 15px; border: none; background-color: #007bff; color: white; border-radius: 4px; cursor: pointer; }
+        button:disabled { background-color: #ccc; }
+        /* Layout */
+        .main-layout { display: flex; gap: 20px; }
+        .sidebar { width: 250px; }
+        .content { flex-grow: 1; }
+        /* Componentes */
+        .emitente-selector, .operation-menu, .operation-details, .logger { margin-bottom: 20px; }
+        .log-messages { height: 200px; overflow-y: scroll; border: 1px solid #ddd; padding: 10px; background-color: #f9f9f9; }
+    </style>
+</head>
+<body>
+    <div id="app" class="container">
+        <h1>Fiscal Websocket</h1>
+        <div class="main-layout">
+            <aside class="sidebar">
+                <div class="emitente-selector">
+                    <h2>Emitentes</h2>
+                    <!-- Formulário de novo emitente -->
+                    <div v-if="!selectedEmitente">
+                        <h3>Cadastrar Novo</h3>
+                        <!-- ... campos para CNPJ, UF, tipo, etc. ... -->
+                    </div>
+                    <!-- Lista de emitentes -->
+                    <div v-else>
+                        <p><strong>Selecionado:</strong> {{ selectedEmitente.razaoSocial }}</p>
+                        <button @click="deselectEmitente">Trocar</button>
+                    </div>
+                </div>
+                
+                <nav class="operation-menu" v-if="selectedEmitente && operationCatalog.categorias">
+                    <h2>Operações ({{ selectedEmitente.tipo }} - {{ selectedEmitente.uf }})</h2>
+                    <div v-for="category in operationCatalog.categorias" :key="category.nome">
+                        <h3>{{ category.icone }} {{ category.nome }}</h3>
+                        <ul>
+                            <li v-for="op in category.operacoes" :key="op.chave">
+                                <a href="#" @click.prevent="selectOperation(op)">{{ op.label }}</a>
+                            </li>
+                        </ul>
+                    </div>
+                </nav>
+            </aside>
+            <main class="content">
+                <div class="operation-details" v-if="currentOperation">
+                    <h2>{{ currentOperation.label }}</h2>
+                    <p>{{ currentOperation.descricao }}</p>
+                    <!-- Formulário da operação -->
+                    <form @submit.prevent="executeOperation">
+                        <!-- Campos renderizados dinamicamente -->
+                        <div v-for="field in currentOperation.camposFormulario" :key="field.name">
+                            <label :for="field.name">{{ field.label }}</label>
+                            <input v-if="field.type !== 'textarea'" :type="field.type" v-model="form[field.name]" :placeholder="field.placeholder" :required="field.required">
+                            <textarea v-else v-model="form[field.name]" :placeholder="field.placeholder" :required="field.required"></textarea>
+                        </div>
+                        <!-- Campo de XML para autorização -->
+                        <div v-if="currentOperation.chave === 'AUTORIZACAO'">
+                            <label for="xml">XML da NF-e</label>
+                            <textarea id="xml" v-model="form.xml" rows="10" required></textarea>
+                        </div>
+                        <button type="submit">Executar</button>
+                    </form>
+                </div>
+                <div class="logger">
+                    <h2>Log de Comunicação</h2>
+                    <div class="log-messages">
+                        <div v-for="(log, index) in logs" :key="index"><strong>{{ log.type }}:</strong> <pre>{{ log.message }}</pre></div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, reactive, onMounted } = Vue;
+
+        createApp({
+            setup() {
+                // Estado reativo
+                const emitentes = ref([]);
+                const selectedEmitente = ref(null);
+                const operationCatalog = reactive({ categorias: [] });
+                const currentOperation = ref(null);
+                const form = reactive({});
+                const logs = reactive([]);
+                let stompClient = null;
+
+                // Lógica de conexão
+                const connect = () => {
+                    const socket = new WebSocket('ws://localhost:8080/ws');
+                    stompClient = Stomp.over(socket);
+                    stompClient.connect({}, frame => {
+                        log('Conectado: ' + frame);
+                        stompClient.subscribe('/topic/responses', response => {
+                            handleResponse(JSON.parse(response.body));
+                        });
+                        // Ações iniciais após conectar
+                        listEmitentes();
+                    });
+                };
+
+                const log = (type, message) => {
+                    logs.unshift({ type, message: JSON.stringify(message, null, 2) });
+                }
+
+                const handleResponse = (response) => {
+                    log('Recebido', response);
+                    switch (response.action) {
+                        case 'list_emitentes':
+                            emitentes.value = response.data;
+                            break;
+                        case 'operations_catalog':
+                            operationCatalog.categorias = response.data.categorias;
+                            break;
+                        // ... outros casos
+                    }
+                };
+
+                const send = (request) => {
+                    log('Enviado', request);
+                    stompClient.send("/app/transmitir", {}, JSON.stringify(request));
+                }
+
+                // Funções de negócio
+                const listEmitentes = () => send({ action: 'list_emitentes' });
+
+                const selectEmitente = (emitente) => {
+                    selectedEmitente.value = emitente;
+                    currentOperation.value = null;
+                    form = reactive({});
+                    // Buscar operações para o emitente selecionado
+                    send({
+                        action: 'get_operations',
+                        data: { 
+                            modelo: emitente.tipo, 
+                            uf: emitente.uf,
+                            ambiente: '1' // Ambiente padrão, pode ser selecionável
+                        }
+                    });
+                };
+
+                const deselectEmitente = () => {
+                    selectedEmitente.value = null;
+                    operationCatalog.categorias = [];
+                };
+                
+                const selectOperation = (op) => {
+                    currentOperation.value = op;
+                    // Limpa o form e prepara para a nova operação
+                    Object.keys(form).forEach(key => delete form[key]);
+                };
+
+                const executeOperation = () => {
+                    const payload = {
+                        action: 'transmitir', // Ação genérica de transmissão
+                        cnpj: selectedEmitente.value.cnpj,
+                        servico: currentOperation.value.chave,
+                        data: { ...form, modelo: selectedEmitente.value.tipo, ambiente: '1' }
+                    };
+                    // Se for autorização, o XML vai no campo principal
+                    if (currentOperation.value.chave === 'AUTORIZACAO') {
+                        payload.xml = form.xml;
+                    }
+                    send(payload);
+                };
+
+                onMounted(() => connect());
+
+                return { 
+                    emitentes, selectedEmitente, operationCatalog, currentOperation, form, logs,
+                    selectEmitente, deselectEmitente, selectOperation, executeOperation
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

@@ -2,31 +2,55 @@ package tech.vcinf.fiscalwebsocket.service;
 
 import org.springframework.stereotype.Service;
 
-import java.io.FileReader;
-import java.io.IOException;
-import java.util.Properties;
+import jakarta.annotation.PostConstruct;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 public class UfWebService {
-    private final Properties properties = new Properties();
 
-    public UfWebService() {
-        try {
-            properties.load(new FileReader("src/main/resources/sefaz-urls.ini"));
-        } catch (IOException e) {
-            // In a real application, you'd want to handle this more gracefully
-            throw new RuntimeException("Failed to load sefaz-urls.ini", e);
+    private final Map<String, Map<String, Map<String, Map<String, String>>>> operationsCache = new HashMap<>();
+
+    @PostConstruct
+    public void init() {
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(getClass().getResourceAsStream("/sefaz-urls.ini")))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                line = line.trim();
+                if (line.isEmpty() || line.startsWith("#") || !line.contains("=")) continue;
+
+                String[] parts = line.split("=");
+                String key = parts[0];
+                String url = parts[1];
+
+                String[] keyParts = key.split("\\.");
+                if (keyParts.length == 4) {
+                    String modelo = keyParts[0];
+                    String servico = keyParts[1];
+                    String uf = keyParts[2];
+                    String ambiente = keyParts[3];
+
+                    operationsCache
+                        .computeIfAbsent(modelo, k -> new HashMap<>())
+                        .computeIfAbsent(uf, k -> new HashMap<>())
+                        .computeIfAbsent(ambiente, k -> new HashMap<>())
+                        .put(servico, url);
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Falha ao carregar e processar o arquivo sefaz-urls.ini");
+            e.printStackTrace();
         }
     }
 
     public String getUrl(String modelo, String servico, String uf, String ambiente) {
-        String key = String.format("%s.%s.%s.%s", modelo, servico, uf, ambiente).toUpperCase();
-        String url = properties.getProperty(key);
+        Map<String, String> serviceUrls = operationsCache
+                .getOrDefault(modelo, new HashMap<>)
+                .getOrDefault(uf, new HashMap<>)
+                .getOrDefault(ambiente, new HashMap<>());
 
-        if (url == null) {
-            throw new RuntimeException("URL não encontrada para a chave: " + key);
-        }
-        
-        return url;
+        return serviceUrls.get(servico);
     }
 }
