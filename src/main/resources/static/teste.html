@@ -232,8 +232,7 @@
             return;
         }
 
-        // Ambiente fixo em Homologação (2)
-        const xml = `<consStatServ xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><tpAmb>2</tpAmb><cUF>${ufCode}</cUF><xServ>STATUS</xServ></consStatServ>`;
+        const xml = `<consStatServ xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><tpAmb>1</tpAmb><cUF>${ufCode}</cUF><xServ>STATUS</xServ></consStatServ>`;
 
         const payload = {
             action: 'transmit',
