@@ -9,10 +9,8 @@ public class CacertInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        System.out.println("---------------------------------------------------");
-        System.out.println("INICIALIZANDO CONFIGURAÇÃO DE CERTIFICADOS ICP-BRASIL");
-        System.out.println("---------------------------------------------------");
+        System.out.println("--- Inicializando configuração de certificados ICP-Brasil ---");
         CacertUtil.instalarCertificadosICPBrasil();
-        System.out.println("---------------------------------------------------");
+        System.out.println("--- Configuração de certificados finalizada ---");
     }
 }
