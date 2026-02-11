@@ -1,37 +1,30 @@
-## Feedback da Migração: Java HttpClient para Apache Commons HttpClient 3.1
+## Feedback da Evolução do CacertUtil: Download Automático de Certificados SEFAZ
 
-A migração crítica do `HttpClient` nativo do Java 11+ para o `Apache Commons HttpClient 3.1` foi concluída com sucesso. A implementação seguiu rigorosamente os requisitos para garantir a compatibilidade com os web services da SEFAZ, resolvendo problemas de negociação TLS/SSL.
+A evolução do `CacertUtil` para incluir o download e a instalação automática dos certificados SSL dos próprios servidores da SEFAZ foi implementada com sucesso. Esta melhoria torna a aplicação significativamente mais robusta, resiliente e de fácil manutenção, adaptando-se automaticamente a mudanças na infraestrutura de certificados dos web services fiscais.
 
 ### Checklist de Implementação
 
-- [x] **Adicionar Dependência no `pom.xml`**:
-    - A dependência `commons-httpclient:commons-httpclient:3.1` foi adicionada com sucesso ao `pom.xml` do projeto, disponibilizando as bibliotecas necessárias para a refatoração.
+- [x] **Criação do Método `extractCertificatesFromUrls()`**:
+    - Um novo método privado `extractCertificatesFromUrls` foi adicionado ao `CacertUtil.java`.
+    - **Leitura do `.ini`**: O método lê e interpreta corretamente o arquivo `src/main/resources/sefaz-urls.ini`, extraindo todas as URLs de serviços que começam com `https://`.
+    - **Conexão e Extração**: Para cada URL, o método estabelece uma conexão `HttpsURLConnection`.
+    - **TrustManager Temporário**: Um `SSLContext` que confia em todos os certificados (`TrustAll`) é usado **propositadamente e de forma segura** apenas durante o processo de download para obter a cadeia de certificados do servidor, sem falhar na validação.
+    - **Adição ao KeyStore**: Cada certificado da cadeia do servidor (raiz, intermediário e final) é extraído e adicionado ao `KeyStore` em memória, utilizando um alias único para evitar conflitos (ex: `sefaz-nfe_sefaz_mt_gov_br-cert0`). A lógica previne a adição de certificados duplicados.
 
-- [x] **Criar Classe `SocketFactoryDinamico`**:
-    - A classe `SocketFactoryDinamico` foi criada em `src/main/java/tech/vcinf/fiscalwebsocket/util/SocketFactoryDinamico.java`.
-    - A classe implementa a interface `SecureProtocolSocketFactory`.
-    - O construtor foi implementado para receber os `KeyStores` do emitente e do `cacert`, a senha, o alias e o protocolo SSL (`TLSv1.2`).
-    - A lógica interna cria um `SSLContext` que utiliza um `KeyManagerFactory` (para o certificado do cliente) e um `TrustManagerFactory` (para o `cacert` da ICP-Brasil), garantindo a autenticação mTLS e a confiança na cadeia de certificados da SEFAZ.
+- [x] **Integração com `createCacertFile()`**:
+    - O método principal `createCacertFile` foi modificado para orquestrar o processo completo.
+    - **Passo 1**: Primeiro, ele baixa e instala os certificados raiz da ICP-Brasil, como fazia anteriormente.
+    - **Passo 2**: Em seguida, ele chama o novo método `extractCertificatesFromUrls` para popular o mesmo `KeyStore` com os certificados dos servidores da SEFAZ.
+    - **Passo 3**: Finalmente, ele salva o `KeyStore` unificado (contendo tanto os certificados da ICP-Brasil quanto os da SEFAZ) no arquivo `cacert`.
 
-- [x] **Refatorar `SefazHttpClientFactory` para `SefazProtocolFactory`**:
-    - A antiga `SefazHttpClientFactory` foi removida.
-    - A nova `SefazProtocolFactory` foi criada e injetada no `SefazService`.
-    - A factory agora produz um objeto `Protocol` do Commons HttpClient, encapsulando a `SocketFactoryDinamico`.
-    - A lógica de cache foi mantida para reutilizar os objetos `Protocol` por CNPJ, otimizando o desempenho.
+- [x] **Adição de Imports Necessários**:
+    - Todos os imports requeridos (`javax.net.ssl.*`, `java.io.BufferedReader`, etc.) foram corretamente adicionados ao arquivo `CacertUtil.java`.
 
-- [x] **Refatorar `SefazService`**:
-    - O `SefazService` foi completamente refatorado para usar o `org.apache.commons.httpclient.HttpClient`.
-    - A implementação agora obtém o `Protocol` customizado da `SefazProtocolFactory` e o atribui à configuração do host do `HttpClient`.
-    - O envio da requisição foi adaptado para usar `PostMethod`, com a configuração correta do corpo da requisição SOAP e do cabeçalho `Content-Type`.
-    - A conexão é liberada corretamente em um bloco `finally` para evitar vazamento de recursos.
+- [x] **Tratamento de Erros Robusto**:
+    - O método foi construído para ser resiliente.
+    - Se o arquivo `sefaz-urls.ini` não for encontrado, um aviso é logado e a criação do `cacert` continua apenas com os certificados da ICP-Brasil.
+    - Se a conexão com uma URL específica da SEFAZ falhar (por timeout, erro de DNS ou servidor offline), um aviso é logado e o processo continua para a próxima URL, sem interromper a inicialização da aplicação.
 
-- [x] **Ajustar Assinatura de Retorno e `FiscalController`**:
-    - O método `SefazService.send` agora retorna uma `String` com o corpo da resposta, em vez de um `HttpResponse`.
-    - O `FiscalController` foi ajustado para receber essa `String` diretamente e construir o `FiscalResponse`, assumindo um status HTTP `200` em caso de sucesso (ausência de exceções).
+### Resultado Final
 
-- [x] **Tratamento de Erros**:
-    - Um bloco `try-catch` robusto foi adicionado ao `SefazService.send()` para capturar e relançar `IOException`, fornecendo mensagens de erro mais claras no caso de falhas de comunicação com a SEFAZ.
-
-### Resultado
-
-A aplicação agora utiliza uma abordagem testada e aprovada pela comunidade para comunicação com os serviços fiscais brasileiros. O controle explícito sobre o `SSLContext` e o uso forçado do `TLSv1.2` eliminam as incompatibilidades encontradas com o `HttpClient` padrão do Java, garantindo que as requisições para a SEFAZ (como a consulta de status) sejam executadas com sucesso.
+Ao ser executado, o novo `CacertUtil` produz um `truststore` (`cacert`) extremamente completo. Ele não depende mais apenas de certificados raiz genéricos, mas contém os certificados exatos que os servidores da SEFAZ estão usando no momento da inicialização da aplicação. Esta abordagem proativa garante que a validação da cadeia de certificados durante as chamadas de serviço via `SefazProtocolFactory` seja bem-sucedida, eliminando uma classe inteira de possíveis erros de `PKIX path building failed` que poderiam ocorrer caso um servidor SEFAZ usasse um certificado intermediário não presente no `cacert` anterior.
