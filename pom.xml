@@ -11,7 +11,7 @@
     </parent>
     <groupId>tech.vcinf</groupId>
     <artifactId>fiscal-websocket</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.0.1</version>
     <name>Fiscal WebSocket</name>
     <description>Middleware Fiscal Java Spring Boot (WebSocket to SEFAZ mTLS)</description>
     <properties>
