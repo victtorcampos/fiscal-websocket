@@ -47,8 +47,8 @@ public class UfWebService {
 
     public String getUrl(String modelo, String servico, String uf, String ambiente) {
         Map<String, String> serviceUrls = operationsCache
-                .getOrDefault(modelo, new HashMap<>)
-                .getOrDefault(uf, new HashMap<>)
+                .getOrDefault(modelo, new HashMap<>())
+                .getOrDefault(uf, new HashMap<>())
                 .getOrDefault(ambiente, new HashMap<>());
 
         return serviceUrls.get(servico);
