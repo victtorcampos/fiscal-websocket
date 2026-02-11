@@ -1,9 +1,6 @@
 package tech.vcinf.fiscalwebsocket.model;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
 
@@ -14,8 +11,13 @@ public class TransactionLog {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private String cnpj;
+
+    @Column(columnDefinition = "TEXT")
     private String xmlEnviado;
+
+    @Column(columnDefinition = "TEXT")
     private String xmlResposta;
+
     private int statusHttp;
     private LocalDateTime data = LocalDateTime.now();
 

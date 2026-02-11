@@ -54,6 +54,12 @@ public class FiscalController {
 
     private static final Set<String> SERVICES_WITHOUT_SIGNATURE = Set.of("STATUS", "CONSULTA", "CONSULTA_CADASTRO", "RET_AUTORIZACAO");
 
+    private static final Set<String> SERVICES_TO_LOG = Set.of(
+            "AUTORIZACAO",
+            "INUTILIZACAO",
+            "EVENTO"
+    );
+
     public FiscalController(EmitenteRepository emitenteRepository,
                             TransactionLogRepository transactionLogRepository,
                             UfWebService ufWebService,
@@ -160,12 +166,21 @@ public class FiscalController {
 
             String responseBody = sefazService.send(url, xmlToSend, emitente, servicoCompleto);
 
-            TransactionLog log = new TransactionLog();
-            log.setCnpj(cnpj);
-            log.setXmlEnviado(xml);
-            log.setXmlResposta(responseBody);
-            log.setStatusHttp(200); // Assumindo sucesso (200 OK) se nenhuma exceção foi lançada
-            transactionLogRepository.save(log);
+            if (SERVICES_TO_LOG.contains(servicoSimples)) {
+                try {
+                    TransactionLog log = new TransactionLog();
+                    log.setCnpj(cnpj);
+                    log.setXmlEnviado(xml);
+                    log.setXmlResposta(responseBody);
+                    log.setStatusHttp(200);
+                    transactionLogRepository.save(log);
+                    System.out.println("Transação registrada no banco: " + servicoSimples);
+                } catch (Exception e) {
+                    System.err.println("ERRO ao salvar log de transação: " + e.getMessage());
+                }
+            } else {
+                System.out.println("Serviço consultivo - sem log persistente: " + servicoSimples);
+            }
 
             return new FiscalResponse(200, responseBody, "Success", "transmit");
         } catch (Exception e) {
